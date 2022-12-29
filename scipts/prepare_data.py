@@ -7,8 +7,10 @@ import wfdb
 
 def ann_from_file(full_path):
     """Read annotations from a single WFDB file and return them in a dictionary.
+    
     Args:
         full_path (str): Full path to file (w/o extension)
+    
     Returns:
         [dict]: QRS and rhythm annotations
     """
@@ -38,8 +40,10 @@ def ann_from_file(full_path):
 
 def get_qrs_w_rhythm(ann):
     """Get a dictionary of QRS locations with corresponding rhythms
+    
     Args:
         ann (dict): each element has a filename as key and is a dict returned by ann_from_file()
+    
     Returns:
         dict: keys are filenames, each element is a dict
             * 'sr' and 'af' keys  
@@ -80,6 +84,7 @@ def get_qrs_w_rhythm(ann):
 
 def save_qrs_to_files(qrs_dict, out_dir):
     """Save QRS of continuous AF and SR segments to CSV files
+    
     Args:
         qrs_dict (dict): annotations dict returned by get_qrs_w_rhythm()
         out_dir (str): Directory to save CSV
@@ -106,6 +111,7 @@ def save_qrs_to_files(qrs_dict, out_dir):
 def prepare_qrs(rec_dir, db_name):
     """From all WFDB records in a directory, get QRS locations and rhythm info.
     Save QRS locations of continuous AF and SR segments to CSV files.
+    
     Args:
         rec_dir (str): Directory with WFDB records
         db_name (str): abbreviation that will later be used to identify database
@@ -124,7 +130,7 @@ def prepare_qrs(rec_dir, db_name):
     # Read annotations (rhythm and QRS) to 'ann' dictionary
     # with record names as keys
     ann = {}
-    for name in file_lst[:2]:
+    for name in file_lst:
         print(name)
         name = Path(name).stem  # filename without extension
         ann[name] = ann_from_file(os.path.join(rec_dir, name))
@@ -135,10 +141,142 @@ def prepare_qrs(rec_dir, db_name):
     save_qrs_to_files(qrs_dict, f"../data/interim/{db_name}/qrs")
 
 
+def prrx_dict_from_rr(rr, prr_r, prr_perc_r):
+    """Get dict of pRRx / pRRx% parameters from RR sequence.
+
+    Args:
+        rr (np.array): 1D array - continuous sequence of RR intervals
+        prr_r (np.array): 1D array - range of pRRx thresholds [ms]
+        prr_perc_r (np.array): 1D array - range of pRRx% thresholds [%]
+
+    Returns:
+        (dict): parameters/metainfo as keys, single value for each item
+    """
+    rr = rr[(rr >= 0.24) & (rr <= 3.0)]  # Filter RR's [s]
+    sd = rr[1:] - rr[:-1]
+    prrx_dict = {}
+    prrx_dict['mean RR'] = np.mean(rr)
+    if len(rr) <= 3:
+        return None
+    # pRRx
+    if prr_r is not None:
+        for x in np.arange(prr_r[0], prr_r[1], prr_r[2]):
+            prrx = 100 * np.count_nonzero((np.abs(sd) >= x/1000)) / len(sd)
+            prrx_dict[f'pRR{x}'] = prrx
+    # pRRx%
+    if prr_perc_r is not None:
+        for x_perc in np.arange(prr_perc_r[0], prr_perc_r[1], prr_perc_r[2]):
+            prrx_perc = 100 * np.count_nonzero((np.abs(sd) >= rr[:-1] * x_perc/100)) / len(sd)
+            prrx_dict[f'pRR{x_perc}%'] = prrx_perc
+    return prrx_dict
+
+
+def qrs_dir_to_prrx_df(qrs_dir, x_sec, prr_r, prr_perc_r):
+    """Prepare Dataframe with assorted pRRx/pRRx% parameters from all records in a directory
+
+    Args:
+        qrs_dir (str): root directory of QRS location info in CSV format
+        x_sec (double): length of RR sequence [s]
+        prr_r (np.array): 1D array - range of pRRx thresholds [ms]
+        prr_perc_r (np.array): 1D array - range of pRRx% thresholds [%]
+
+    Returns:
+        (pd.DataFrame): Dataframe with assorted pRRx/pRRx% parameters from all records
+    """
+    # List of records
+    rec_names = sorted(os.listdir(qrs_dir))
+    print(f"Record names: {rec_names}")
+    prrx_dict = {}
+    meta = ['rec_name', 't_start', 'len_sec', 'num_rr', 'is_af']
+    for col in meta:
+        prrx_dict[col] = []
+    prrx_dict['mean RR'] = []
+    for rn in rec_names:
+        # List of segments (CSV files with QRS)
+        qrs_segm = sorted(os.listdir(os.path.join(qrs_dir, rn, 'qrs')))
+        print(f'{qrs_segm = }')
+        # Calculate RR for each QRS segment
+        for qrs_name in qrs_segm:
+            # Get AF/SR label from QRS file name
+            if 'af' in qrs_name:
+                is_af = 1
+            else:
+                is_af = 0
+            df = pd.read_csv(os.path.join(qrs_dir, rn, 'qrs', qrs_name))
+            qrs = df.values.flatten()
+            start_idx = 0
+            # Find x_sec long series of QRS
+            for idx, r in enumerate(qrs):
+                if qrs[idx] - qrs[start_idx] > x_sec:
+                    # HRV from x_sec long segment
+                    rr = qrs[start_idx+1:idx] - qrs[start_idx:idx-1]
+                    prrx_single = prrx_dict_from_rr(rr, prr_r, prr_perc_r)
+                    if prrx_single is not None:
+                        prrx_dict['rec_name'].append(rn)
+                        prrx_dict['t_start'].append(qrs[start_idx])
+                        prrx_dict['len_sec'].append(x_sec)
+                        prrx_dict['num_rr'].append(idx - 1 - start_idx)
+                        prrx_dict['is_af'].append(is_af)
+                        for feature in prrx_single:
+                            if feature in prrx_dict:
+                                prrx_dict[feature].append(prrx_single[feature])
+                            else:
+                                prrx_dict[feature] = [prrx_single[feature]]
+                    start_idx = idx - 1
+    prrx_df = pd.DataFrame.from_dict(prrx_dict)
+    return prrx_df
+
+
+def prepare_prrx(db, fs, x_sec, qrs_dir, prrx_dir):
+    """Calculate pRRx/pRRx% parameters and save in CSV files
+
+    Args:
+        db (str): Acronym of the database
+        fs (double): Sampling frequency [fs]
+        x_sec (int): Length of RR sequence [s]
+        qrs_dir (str): Root directory of QRS location info in CSV format
+        prrx_dir (str): Directory for pRRx/pRRx% data files in CSV format
+    """
+    # Make directory for results if it doesn't exist
+    if not os.path.exists(os.path.join(prrx_dir, db)):
+        # print(f'Making dir: {os.path.join(prrx_dir, db)}')
+        os.makedirs(os.path.join(prrx_dir, db))
+    # pRRx_ms
+    prr_step_ms = 1000 / fs  # pRRx threshold x increment step
+    prrx_df = qrs_dir_to_prrx_df(
+        qrs_dir=os.path.join(qrs_dir, f'{db}/qrs'),
+        x_sec=x_sec,
+        prr_r=(prr_step_ms, 201, prr_step_ms),
+        prr_perc_r=None,
+    )
+    print(prrx_df.head())
+    prrx_df.to_csv(
+        os.path.join(prrx_dir, f"{db}/prrx_{db}_{x_sec}s.csv")
+        )
+    # pRRx_%
+    prrx_df = qrs_dir_to_prrx_df(
+        qrs_dir=os.path.join(qrs_dir, f'{db}/qrs'),
+        x_sec=x_sec,
+        prr_r=None,
+        prr_perc_r=(0.25, 25.1, 0.25),
+    )
+    print(prrx_df.head())
+    prrx_df.to_csv(
+        os.path.join(prrx_dir, db, f"prrx_perc_{db}_{x_sec}s.csv")
+    )
+
+
 if __name__ == '__main__':
     # 1. Save QRS locations of continuous AF and SR segments to CSV files
     for db in ['ltafdb', 'afdb']:
         rec_dir = f'D:/Matlab_data/physionet/databases/{db}/1.0.0'
         print(rec_dir)
         prepare_qrs(rec_dir, db)
+    
     # 2. Calculate pRRx and pRRx%
+    x_sec = 60  # Length of RR segments [s]
+    for db, fs in [['ltafdb', 128], ['afdb', 250]]:
+        prepare_prrx(
+            db, fs, x_sec,
+            qrs_dir='../data/interim',
+            prrx_dir='../data/processed')
