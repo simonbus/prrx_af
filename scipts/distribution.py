@@ -80,12 +80,17 @@ def plot_distr(perc_dict, db, x_sec, fig_dir):
 
 if __name__ == '__main__':
     prrx_dir = '../data/processed'
-    db = 'ltafdb'
     fig_dir = '../reports/images/distr'
     x_sec = 60
-    df = pd.read_csv(os.path.join(prrx_dir, db, f"prrx_perc_{db}_{x_sec}s.csv"))
-    perc_dict = calc_percentiles(df)
-    if not os.path.exists(fig_dir):
-        os.makedirs(os.path.join(fig_dir))
-    plot_distr(perc_dict, db, x_sec, fig_dir)
+    for db in ['ltafdb', 'afdb']:
+        for group in ['pRRx', 'pRRx%']:
+            if group == 'pRRx':
+                fn = f"prrx_perc_{db}_{x_sec}s.csv"
+            elif group == 'pRRx%':
+                fn = f"prrx_{db}_{x_sec}s.csv"
+            df = pd.read_csv(os.path.join(prrx_dir, db, fn))
+            perc_dict = calc_percentiles(df)
+            if not os.path.exists(fig_dir):
+                os.makedirs(os.path.join(fig_dir))
+            plot_distr(perc_dict, db, x_sec, fig_dir)
     
