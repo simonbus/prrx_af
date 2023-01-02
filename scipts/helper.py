@@ -5,7 +5,7 @@ import numpy as np
 
 
 def get_params(df, col_name=None):
-    """Get grouped parameter names from pRRx dataframe
+    """Get grouped parameter names from pRRx/pRRx% dataframe
 
     Args:
         df (pd.DataFrame): DF with pRRx/pRRx% parameters as column names or a single column

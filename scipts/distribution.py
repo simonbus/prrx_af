@@ -48,9 +48,9 @@ def plot_distr(perc_dict, db, x_sec, fig_dir):
         ax = helper.default_fig()
         title = f'Quartiles, 10-th and 90-th percentile of {group}'
         if group == 'pRRx':
-            xlabel = 'Threshold $x$ [ms]'
+            xlabel = 'Threshold x [ms]'
         else:
-            xlabel = 'Threshold $x$ [%]'
+            xlabel = 'Threshold x [%]'
         features = list(perc_dict[group].keys())
         x_thr = helper.get_x_thr(features)
         for rhythm, color in (('SR', 'tab:blue'), ('AF', 'tab:orange')):
@@ -83,14 +83,9 @@ if __name__ == '__main__':
     fig_dir = '../reports/images/distr'
     x_sec = 60
     for db in ['ltafdb', 'afdb']:
-        for group in ['pRRx', 'pRRx%']:
-            if group == 'pRRx':
-                fn = f"prrx_perc_{db}_{x_sec}s.csv"
-            elif group == 'pRRx%':
-                fn = f"prrx_{db}_{x_sec}s.csv"
-            df = pd.read_csv(os.path.join(prrx_dir, db, fn))
-            perc_dict = calc_percentiles(df)
-            if not os.path.exists(fig_dir):
-                os.makedirs(os.path.join(fig_dir))
-            plot_distr(perc_dict, db, x_sec, fig_dir)
+        df = pd.read_csv(os.path.join(prrx_dir, db, f"prrx_{db}_{x_sec}s.csv"))
+        perc_dict = calc_percentiles(df)
+        if not os.path.exists(fig_dir):
+            os.makedirs(os.path.join(fig_dir))
+        plot_distr(perc_dict, db, x_sec, fig_dir)
     
