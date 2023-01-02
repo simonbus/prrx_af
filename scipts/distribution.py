@@ -20,7 +20,7 @@ def calc_percentiles(df):
     groups = [group for group in params if len(params[group]) > 0]
     perc_dict = {g: dict() for g in groups}
     for group in groups:
-        features = [x[0] for x in params[group]]
+        features = params[group]
         perc_dict[group] = {f: {'AF': {}, 'SR': {}} for f in features}
         # Calculate percentiles (0-100)
         for i, feature in enumerate(features):

@@ -29,9 +29,9 @@ def get_params(df, col_name=None):
             if x is not None:
                 x = x.group()
                 if key in params:
-                    params[key].append((item, x))
+                    params[key].append(item)
                 else:
-                    params[key] = [(item, x)]
+                    params[key] = [item]
     return params
 
 
