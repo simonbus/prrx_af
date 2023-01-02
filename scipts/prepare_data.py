@@ -97,15 +97,17 @@ def save_qrs_to_files(qrs_dict, out_dir):
         # SR segments
         for i, sr in enumerate(qrs_dict[rec_name]["sr"]):
             df = pd.DataFrame(sr)
-            df.to_csv(
-                folder + f"/{rec_name}_sr_{i}.csv",
-                index=False, header=False)
+            if len(df.index > 0):
+                df.to_csv(
+                    folder + f"/{rec_name}_sr_{i}.csv",
+                    index=False, header=False)
         # AF segments
         for i, af in enumerate(qrs_dict[rec_name]["af"]):
             df = pd.DataFrame(af)
-            df.to_csv(
-                folder + f"/{rec_name}_af_{i}.csv",
-                index=False, header=False)
+            if len(df.index > 0):
+                df.to_csv(
+                    folder + f"/{rec_name}_af_{i}.csv",
+                    index=False, header=False)
 
 
 def prepare_qrs(rec_dir, db_name):
@@ -241,29 +243,19 @@ def prepare_prrx(db, fs, x_sec, qrs_dir, prrx_dir):
     if not os.path.exists(os.path.join(prrx_dir, db)):
         # print(f'Making dir: {os.path.join(prrx_dir, db)}')
         os.makedirs(os.path.join(prrx_dir, db))
-    # pRRx_ms
+    # pRRx_ms, pRRx_%
     prr_step_ms = 1000 / fs  # pRRx threshold x increment step
+    prrx_step_perc = 0.25  # pRRx% threshold x% increment step
     prrx_df = qrs_dir_to_prrx_df(
         qrs_dir=os.path.join(qrs_dir, f'{db}/qrs'),
         x_sec=x_sec,
         prr_r=(prr_step_ms, 201, prr_step_ms),
-        prr_perc_r=None,
+        prr_perc_r=(prrx_step_perc, 25.1, prrx_step_perc),
     )
     print(prrx_df.head())
     prrx_df.to_csv(
         os.path.join(prrx_dir, f"{db}/prrx_{db}_{x_sec}s.csv")
         )
-    # pRRx_%
-    prrx_df = qrs_dir_to_prrx_df(
-        qrs_dir=os.path.join(qrs_dir, f'{db}/qrs'),
-        x_sec=x_sec,
-        prr_r=None,
-        prr_perc_r=(0.25, 25.1, 0.25),
-    )
-    print(prrx_df.head())
-    prrx_df.to_csv(
-        os.path.join(prrx_dir, db, f"prrx_perc_{db}_{x_sec}s.csv")
-    )
 
 
 if __name__ == '__main__':
