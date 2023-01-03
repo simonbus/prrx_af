@@ -49,8 +49,8 @@ def auc_prrx_to_excel(prrx_dir, db, x_sec, auc_dir):
         x_sec (int): Length of RR sequence [s]
         auc_dir (str): Write directory for AUC
     """
-    # 1. Read data (pRRx_ms or pRRx_%)
-    df = pd.read_csv(os.path.join(prrx_dir, db, f"prrx_{db}_{x_sec}s.csv"))
+    # 1. Read data (pRRx, pRRx%)
+    df = helper.get_prrx_from_file(prrx_dir, db, x_sec)
     # 2. Calculate AUC
     dfs_auc = calc_auc(df, x_sec)
     # 3. Save results to Excel (single file)
@@ -131,8 +131,8 @@ def cutoff_prrx_to_excel(prrx_dir, db, method, x_sec, cutoff_dir):
         cutoff_dir (str): Write directory for cutoffs.
 
     """
-    # 1. Read data (pRRx, pRRx_%)
-    df = pd.read_csv(os.path.join(prrx_dir, db, f"prrx_{db}_{x_sec}s.csv"))
+    # 1. Read data (pRRx, pRRx%)
+    df = helper.get_prrx_from_file(prrx_dir, db, x_sec)
     # 2. Calculate cutoffs
     dfs_cutoff = find_optimal_cutoff(df, method)
     # 3. Save in a single Excel file
@@ -151,6 +151,8 @@ if __name__ == '__main__':
     for db in ['ltafdb', 'afdb']:
         if not os.path.exists(roc_dir):
             os.makedirs(os.path.join(roc_dir))
-        # auc_prrx_to_excel(prrx_dir, db, x_sec, roc_dir)
+        # 1. Calculate and save AUC
+        auc_prrx_to_excel(prrx_dir, db, x_sec, roc_dir)
+        # 2. Calculate and save optimal cutoffs
         cutoff_prrx_to_excel(
             prrx_dir, db, method='youden', x_sec=60, cutoff_dir=roc_dir)

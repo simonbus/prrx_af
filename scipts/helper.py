@@ -2,6 +2,26 @@ import re
 import os
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
+
+
+def get_prrx_from_file(prrx_dir, db, x_sec):
+    """Read pRRx/pRRx% from CSV. Remove bad quality data.
+
+    Args:
+        prrx_dir (str): Directory with pRRx/pRRx% in CSV format
+        db (str): Acronym of the database
+        x_sec (int): Length of RR sequence [s]
+
+    Returns:
+        (pd.DataFrame): DF with pRRx/pRRx% data
+    """
+    df = pd.read_csv(
+        os.path.join(prrx_dir, db, f"prrx_{db}_{x_sec}s.csv"),
+    )
+    # Remove bad quality data
+    df = df[df['num_rr'] * df['mean RR'] >= 0.9 * df['len_sec']]
+    return df
 
 
 def get_params(df, col_name=None):

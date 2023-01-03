@@ -83,7 +83,7 @@ if __name__ == '__main__':
     fig_dir = '../reports/images/distr'
     x_sec = 60
     for db in ['ltafdb', 'afdb']:
-        df = pd.read_csv(os.path.join(prrx_dir, db, f"prrx_{db}_{x_sec}s.csv"))
+        df = helper.get_prrx_from_file(prrx_dir, db, x_sec)
         perc_dict = calc_percentiles(df)
         if not os.path.exists(fig_dir):
             os.makedirs(os.path.join(fig_dir))
