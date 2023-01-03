@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn import metrics
+from matplotlib import pyplot as plt
 import helper
 
 
@@ -113,7 +114,7 @@ def find_optimal_cutoff(df, method):
                 y_score = -y_score
             opt_cutoff.append(cutoff)
         dfs_cutoff[group] = pd.DataFrame({
-            'features': features,
+            'feature': features,
             f'{x_sec} s': opt_cutoff,
             })        
     return dfs_cutoff
@@ -144,15 +145,90 @@ def cutoff_prrx_to_excel(prrx_dir, db, method, x_sec, cutoff_dir):
     writer.save()
 
 
+def plot_auc(auc_dir, db, x_sec, fig_dir):
+    """Plot AUC of pRRx/pRRx% from Excel file
+
+    Args:
+        auc_dir (str): Directory with AUC Excel files.
+        db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
+        fig_dir (str): Write directory for images.
+    """
+    fname = f"auc_prrx_{db}_{x_sec}s.xlsx"
+    dfs_auc = pd.read_excel(
+        os.path.join(auc_dir, fname), sheet_name=None)
+    xlabel = {'pRRx': 'Threshold x [ms]',
+              'pRRx%': 'Threshold x [%]'}
+    for group in dfs_auc.keys():  # pRRx, pRRx%
+        print(group)
+        df = dfs_auc[group]
+        ax = helper.default_fig()
+        x_thr = helper.get_x_thr(df['feature'])
+        val = df[f'{x_sec} s'].values
+        ylim_min = np.floor(100*np.min(val)) / 100
+        ylim_max = np.ceil(100*np.max(val)) / 100
+        helper.plot_line(
+            ax, x_thr, val,
+            xlabel=xlabel[group], ylabel='AUC',
+            title='AUC', marker='o', markersize=2,
+            xlim=(0, np.ceil(x_thr[-1]/5)*5), ylim=(ylim_min, ylim_max)
+            )
+        group = group.replace('%', '_perc')
+        fname = f"auc_{group}_{db}_{x_sec}s.png"
+        helper.save_fig(fig_dir, fname)
+        plt.show()
+
+
+def plot_cutoff(cutoff_dir, db, x_sec, method, fig_dir):
+    """Plot optimal cutoffs of pRRx/pRRx%
+
+    Args:
+        cutoff_dir (str): Directory with cutoffs in Excel file.
+        db (str): Acronym of the database.
+        method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
+        x_sec (int): Length of RR sequence [s].
+        fig_dir (str): Write directory for images.
+    """
+    fname = f"cutoffs_prrx_{method}_{db}_{x_sec}s.xlsx"
+    dfs_auc = pd.read_excel(
+        os.path.join(cutoff_dir, fname), sheet_name=None)
+    xlabel = {'pRRx': 'Threshold x [ms]',
+              'pRRx%': 'Threshold x [%]'}
+    for group in dfs_auc.keys():  # pRRx, pRRx%
+        print(group)
+        df = dfs_auc[group]
+        ax = helper.default_fig()
+        x_thr = helper.get_x_thr(df['feature'])
+        val = df[f'{x_sec} s'].values
+        helper.plot_line(
+            ax, x_thr, val,
+            xlabel=xlabel[group], ylabel='Cutoff [%]',
+            title='Optimal cutoff', marker='o', markersize=2,
+            xlim=(0, np.ceil(x_thr[-1]/5)*5), ylim=(0, 100)
+            )
+        group = group.replace('%', '_perc')
+        fname = f"optimal_cutoff_{group}_{db}_vs_{x_sec}s.png"
+        helper.save_fig(fig_dir, fname)
+        plt.show()
+
+
 if __name__ == '__main__':
     prrx_dir = '../data/processed'
     roc_dir = '../reports/excel/roc'
+    fig_dir = '../reports/images/roc'
     x_sec = 60
     for db in ['ltafdb', 'afdb']:
         if not os.path.exists(roc_dir):
             os.makedirs(os.path.join(roc_dir))
+        if not os.path.exists(fig_dir):
+            os.makedirs(os.path.join(fig_dir))
         # 1. Calculate and save AUC
         auc_prrx_to_excel(prrx_dir, db, x_sec, roc_dir)
         # 2. Calculate and save optimal cutoffs
         cutoff_prrx_to_excel(
             prrx_dir, db, method='youden', x_sec=60, cutoff_dir=roc_dir)
+        # 3. Plot AUC
+        plot_auc(roc_dir, db, x_sec, fig_dir)
+        # 4. Plot cutoffs
+        plot_cutoff(roc_dir, db, x_sec, 'youden', fig_dir)

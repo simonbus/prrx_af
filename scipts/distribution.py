@@ -42,7 +42,7 @@ def plot_distr(perc_dict, db, x_sec, fig_dir):
         perc_dict (dict): Dictionary with parameter names and percentiles in AF and SR
         db (str): Acronym of the database
         x_sec (int): Length of RR sequence [s]
-        fig_dir: Write directory for images
+        fig_dir (str): Write directory for images
     """
     for group in perc_dict.keys():
         ax = helper.default_fig()
