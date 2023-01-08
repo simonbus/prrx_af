@@ -110,13 +110,13 @@ def save_qrs_to_files(qrs_dict, out_dir):
                     index=False, header=False)
 
 
-def prepare_qrs(rec_dir, db_name):
+def prepare_qrs(rec_dir, db):
     """From all WFDB records in a directory, get QRS locations and rhythm info.
     Save QRS locations of continuous AF and SR segments to CSV files.
     
     Args:
         rec_dir (str): Directory with WFDB records
-        db_name (str): abbreviation that will later be used to identify database
+        db (str): abbreviation that will later be used to identify database
     """
 
     # #### 1. READ DATA ####
@@ -140,7 +140,7 @@ def prepare_qrs(rec_dir, db_name):
     # For all records, divide QRS's to AF and SR
     # based on rhythm annotations and save in CSVs
     qrs_dict = get_qrs_w_rhythm(ann)
-    save_qrs_to_files(qrs_dict, f"../data/interim/{db_name}/qrs")
+    save_qrs_to_files(qrs_dict, f"../data/interim/{db}/qrs")
 
 
 def prrx_dict_from_rr(rr, prr_r, prr_perc_r):
