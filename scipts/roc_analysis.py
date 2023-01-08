@@ -51,7 +51,7 @@ def auc_prrx_to_excel(prrx_dir, db, x_sec, auc_dir):
         auc_dir (str): Write directory for AUC
     """
     # 1. Read data (pRRx, pRRx%)
-    df = helper.get_prrx_from_file(prrx_dir, db, x_sec)
+    df = helper.read_prrx(prrx_dir, db, x_sec)
     # 2. Calculate AUC
     dfs_auc = calc_auc(df, x_sec)
     # 3. Save results to Excel (single file)
@@ -133,7 +133,7 @@ def cutoff_prrx_to_excel(prrx_dir, db, method, x_sec, cutoff_dir):
 
     """
     # 1. Read data (pRRx, pRRx%)
-    df = helper.get_prrx_from_file(prrx_dir, db, x_sec)
+    df = helper.read_prrx(prrx_dir, db, x_sec)
     # 2. Calculate cutoffs
     dfs_cutoff = find_optimal_cutoff(df, method)
     # 3. Save in a single Excel file
@@ -179,25 +179,42 @@ def plot_auc(auc_dir, db, x_sec, fig_dir):
         plt.show()
 
 
+def read_opt_cutoff(cutoff_dir, db, x_sec, method):
+    """Read optimal cutoffs of pRRx/pRRx% from Excel.
+
+    Args:
+        cutoff_dir (str): Directory with cutoffs in Excel file.
+        db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
+        method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
+        
+    Returns:
+        dict: dict of DF with cutoffs (saved by cutoff_prrx_to_excel())
+    """
+    fname = f"cutoffs_prrx_{method}_{db}_{x_sec}s.xlsx"
+    dfs_cutoff = pd.read_excel(
+        os.path.join(cutoff_dir, fname), sheet_name=None)
+    return dfs_cutoff
+
+
 def plot_cutoff(cutoff_dir, db, x_sec, method, fig_dir):
     """Plot optimal cutoffs of pRRx/pRRx%
 
     Args:
         cutoff_dir (str): Directory with cutoffs in Excel file.
         db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
         method (str): Method of optimal threshold calculation.
             Can be 'youden', 'dor_max' or '01_criterion'.
-        x_sec (int): Length of RR sequence [s].
         fig_dir (str): Write directory for images.
     """
-    fname = f"cutoffs_prrx_{method}_{db}_{x_sec}s.xlsx"
-    dfs_auc = pd.read_excel(
-        os.path.join(cutoff_dir, fname), sheet_name=None)
+    dfs_cutoff = read_opt_cutoff(cutoff_dir, db, x_sec, method)
     xlabel = {'pRRx': 'Threshold x [ms]',
               'pRRx%': 'Threshold x [%]'}
-    for group in dfs_auc.keys():  # pRRx, pRRx%
+    for group in dfs_cutoff.keys():  # pRRx, pRRx%
         print(group)
-        df = dfs_auc[group]
+        df = dfs_cutoff[group]
         ax = helper.default_fig()
         x_thr = helper.get_x_thr(df['feature'])
         val = df[f'{x_sec} s'].values

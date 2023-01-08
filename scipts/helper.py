@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-def get_prrx_from_file(prrx_dir, db, x_sec):
+def read_prrx(prrx_dir, db, x_sec):
     """Read pRRx/pRRx% from CSV. Remove bad quality data.
 
     Args:
