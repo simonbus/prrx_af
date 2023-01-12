@@ -172,6 +172,54 @@ def plot_boot(db, group, N, x_sec, boot_dir, fig_dir):
     plt.show()
 
 
+def get_scores_from_confusion_matrix_sheets(sheets, param):
+    tp = sheets['TP'][param].values
+    fp = sheets['FP'][param].values
+    tn = sheets['TN'][param].values
+    fn = sheets['FN'][param].values
+    scores = {
+        "Accuracy": 100 * (tp+tn)/(tp+tn+fp+fn+1e-9),
+        "Sensitivity": 100 * (tp)/(tp+fn+1e-9),
+        "Specificity": 100 * (tn)/(tn+fp+1e-9),
+        "PPV": 100 * (tp)/(tp+fp+1e-9),
+        "NPV": 100 * (tn)/(tn+fn+1e-9),
+        "F1-score": 100 * 2 * tp / (2*tp + fp + fn),
+        "DOR": tp*tn/(fp*fn+1e-9)
+    }
+    return scores
+
+
+def plot_compare_scores_distr(db, group_param_label,
+                              N, x_sec, boot_dir, fig_dir, suptitle=None):
+    scores = {}
+    for (group, param, label) in group_param_label:
+        fname = os.path.join(
+            boot_dir, db, f"bootstrap_{group}_{x_sec}s_N={N}.xlsx")
+        sheets = pd.read_excel(fname, engine='openpyxl', sheet_name=None)
+        scores[param] = get_scores_from_confusion_matrix_sheets(sheets, param)
+    color_tab = ['tab:orange', 'tab:blue', 'tab:green', 'tab:red', 'tab:purple']
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8), sharey=True)
+    for i, metric in enumerate(['Accuracy', 'Sensitivity', 'Specificity', 'DOR']):
+        ax = axs[i//2, i % 2]
+        for j, (group, param, label) in enumerate(group_param_label):
+            score = scores[param][metric]
+            ax.hist(score, bins=50, label=label, alpha=0.7, color=color_tab[j])
+            ax.set_title(metric)
+            ax.minorticks_on()
+            ax.grid(b=True, which='major', linestyle='-')
+            ax.grid(b=True, which='minor', linestyle='--', linewidth=0.5)
+            ax.legend()
+            if metric != 'DOR':
+                ax.set_xlabel('[%]')
+    plt.suptitle(suptitle, size=16)
+    param_str = '_vs_'.join([l for g, p, l in group_param_label])
+    param_str = param_str.replace('.', '_').replace('%', 'perc')
+    fname = f'metrics_{param_str}_N={N}_{x_sec}s_{db}.png'
+    plt.tight_layout()
+    helper.save_fig(fig_dir, fname)
+    plt.show()
+
+
 if __name__ == '__main__':
     N = 5000
     prrx_dir = '../data/processed'
@@ -186,3 +234,14 @@ if __name__ == '__main__':
         for group in ['pRRx', 'pRRx%']:
             calculate_95ci(boot_dir, db, x_sec, N, group)
             plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
+        # 5. Compare distributions of metrics for pRR5%, pRR31 and pRR50
+        plot_compare_scores_distr(
+            db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
+                                   ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
+            N=N, x_sec=x_sec, boot_dir=boot_dir,
+            fig_dir=fig_dir)
+        plot_compare_scores_distr(
+            db, group_param_label=(('pRRx', 'pRR54.6875', 'pRR50'),
+                                   ('pRRx', 'pRR31.25', 'pRR31')),
+            N=N, x_sec=x_sec, boot_dir=boot_dir,
+            fig_dir=fig_dir)
