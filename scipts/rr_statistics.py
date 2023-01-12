@@ -8,7 +8,7 @@ def rr_stats(qrs_dir, x_sec):
 
     Args:
         qrs_dir (str): root directory of QRS location info in CSV format
-        x_sec (double): length of RR sequence [s]
+        x_sec (int): length of RR sequence [s]
     """
     # List of records
     rec_names = sorted(os.listdir(qrs_dir))
