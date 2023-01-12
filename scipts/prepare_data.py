@@ -264,10 +264,9 @@ if __name__ == '__main__':
         rec_dir = f'D:/Matlab_data/physionet/databases/{db}/1.0.0'
         print(rec_dir)
         prepare_qrs(rec_dir, db)
-    
     # 2. Calculate pRRx and pRRx%
     x_sec = 60  # Length of RR segments [s]
-    for db, fs in [['ltafdb', 128], ['afdb', 250]]:
+    for db, fs in [['ltafdb', 128], ['afdb', 128]]:
         prepare_prrx(
             db, fs, x_sec,
             qrs_dir='../data/interim',

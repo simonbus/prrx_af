@@ -45,7 +45,6 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
             X = x_df.values
             y_true = df_prrx['is_af'].loc[x_df.index].values
             y_pred = X >= cutoffs
-            
             for i, feature in enumerate(features):
                 tn_, fp_, fn_, tp_ = conf_mat(y_true, y_pred[:, i]).ravel()
                 tn[feature].append(tn_)
@@ -274,6 +273,49 @@ def plot_compare_scores_distr(db, group_param_label,
     plt.show()
 
 
+def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
+                  prrx_dir, boot_dir):
+    # 1. Read test set values
+    df_prrx = helper.read_prrx(prrx_dir, db_test, x_sec)
+    params = helper.get_params(df_prrx)
+    # 2. Read cutoffs
+    dfs_cutoff = read_opt_cutoff(
+        cutoff_dir, db_train, x_sec, cutoff_method)
+    # 3. Bootstrap in test set
+    boot_dir = os.path.join(boot_dir, f'train_{db_train}_test_{db_test}')
+    if not os.path.exists(boot_dir):
+        os.makedirs(boot_dir)
+    for group, features in params.items():  # pRRx, pRRx%
+        features = params[group]
+        tn = {f: [] for f in features}
+        fp = {f: [] for f in features}
+        fn = {f: [] for f in features}
+        tp = {f: [] for f in features}
+        cutoffs = dfs_cutoff[group][f'{x_sec} s'].values
+        n_sampl = len(df_prrx.index)
+        for iter in range(N):
+            print(f'Train: {db_train.upper()}, test": {db_test.upper()}',
+                  f'({group}), {iter = } / {N}')
+            x_df = df_prrx[features].sample(n=n_sampl, replace=True)
+            X = x_df.values
+            y_true = df_prrx['is_af'].loc[x_df.index].values
+            y_pred = X >= cutoffs
+            for i, feature in enumerate(features):
+                tn_, fp_, fn_, tp_ = conf_mat(y_true, y_pred[:, i]).ravel()
+                tn[feature].append(tn_)
+                fp[feature].append(fp_)
+                fn[feature].append(fn_)
+                tp[feature].append(tp_)
+        writer = pd.ExcelWriter(
+            os.path.join(boot_dir, f"{x_sec}s_bootstrap_N={N}.xlsx"),
+            engine='openpyxl')
+        for i, (metric, metric_name) in enumerate([(tn, "TN"), (fp, "FP"),
+                                                   (fn, "FN"), (tp, "TP")]):
+            pd.DataFrame.from_dict(metric).to_excel(
+                writer, sheet_name=metric_name, index=False)
+        writer.save()
+
+
 if __name__ == '__main__':
     N = 5000
     prrx_dir = '../data/processed'
@@ -288,7 +330,7 @@ if __name__ == '__main__':
         for group in ['pRRx', 'pRRx%']:
             calculate_95ci(boot_dir, db, x_sec, N, group)
             plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
-        # 5. Compare distributions of metrics for pRR5%, pRR31 and pRR50
+        # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
         plot_compare_scores_distr(
             db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
                                    ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
@@ -299,3 +341,7 @@ if __name__ == '__main__':
                                    ('pRRx', 'pRR31.25', 'pRR31')),
             N=N, x_sec=x_sec, boot_dir=boot_dir,
             fig_dir=fig_dir)
+    boot_test_set(
+        db_train='ltafdb', db_test='afdb', cutoff_method=cutoff_method, N=N,
+        x_sec=x_sec, cutoff_dir=cutoff_dir, prrx_dir=prrx_dir,
+        boot_dir=boot_dir)
