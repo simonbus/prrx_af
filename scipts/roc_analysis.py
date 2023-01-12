@@ -45,10 +45,10 @@ def auc_prrx_to_excel(prrx_dir, db, x_sec, auc_dir):
     """Calculate AUC of pRRx/pRRx% and save in a single Excel file
 
     Args:
-        prrx_dir (str): Directory with pRRx/pRRx% in CSV format
-        db (str): Acronym of the database
-        x_sec (int): Length of RR sequence [s]
-        auc_dir (str): Write directory for AUC
+        prrx_dir (str): Directory with pRRx/pRRx% in CSV format.
+        db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
+        auc_dir (str): Write directory for AUC.
     """
     # 1. Read data (pRRx, pRRx%)
     df = helper.read_prrx(prrx_dir, db, x_sec)
@@ -63,10 +63,10 @@ def auc_prrx_to_excel(prrx_dir, db, x_sec, auc_dir):
 
 
 def find_optimal_cutoff(df, method):
-    """Find optimal cutoff of pRRx/pRRx% using specified method
+    """Find optimal cutoff of pRRx/pRRx% using specified method.
 
     Args:
-        df (pd.DataFrame): DF with values of pRRx/pRRx% parameters
+        df (pd.DataFrame): DF with values of pRRx/pRRx% parameters.
         method (str, optional): Method of optimal threshold calculation.
             Can be 'youden', 'dor_max' or '01_criterion'.
 

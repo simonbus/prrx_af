@@ -14,6 +14,18 @@ def conf_mat(y_true, y_pred):
 
 
 def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
+    """Classify pRRx/pRRx% as AF/SR N times using nonparametric bootstrap.
+
+    Args:
+        prrx_dir (str): Directory with pRRx/pRRx% in CSV format.
+        cutoff_dir (str): Directory with cutoffs in Excel file.
+        db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
+        cutoff_method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
+        N (int): Number of samples in bootstrap
+        boot_dir (str): Write directory for bootstrap results.
+    """
     df_prrx = helper.read_prrx(prrx_dir, db, x_sec)
     dfs_cutoff = read_opt_cutoff(cutoff_dir, db, x_sec, cutoff_method)
     params = helper.get_params(df_prrx)
@@ -53,6 +65,15 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
 
 
 def calculate_95ci(boot_dir, db, x_sec, N, group):
+    """Calculate 95% confidence interval from bootstrap results.
+
+    Args:
+        boot_dir (str): Directory with bootstrap results in Excel file.
+        db (str): Acronym of the database.
+        x_sec (int): Length of RR sequence [s].
+        N (int): Number of samples in bootstrap
+        group (str): 'pRRx' or 'pRRx%
+    """
     # Calculate 95% CI from bootstrap results
     fname = f"bootstrap_{group}_{x_sec}s_N={N}.xlsx"
     xls_path = os.path.join(boot_dir, db, fname)
@@ -102,6 +123,16 @@ def calculate_95ci(boot_dir, db, x_sec, N, group):
 
 
 def plot_boot(db, group, N, x_sec, boot_dir, fig_dir):
+    """Plot results from bootstrap.
+
+    Args:
+        db (str): Acronym of the database.
+        group (str): 'pRRx' or 'pRRx%
+        N (int): Number of samples in bootstrap
+        x_sec (int): Length of RR sequence [s].
+        boot_dir (str): Directory with bootstrap results in Excel file.
+        fig_dir (str): Write directory for images.
+    """
     color_tab = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
     if '%' in group:
         thr_unit = '%'
@@ -173,6 +204,15 @@ def plot_boot(db, group, N, x_sec, boot_dir, fig_dir):
 
 
 def get_scores_from_confusion_matrix_sheets(sheets, param):
+    """Calculate classification metrics from confusion matrix sheets (bootstrap)
+
+    Args:
+        sheets (dict): Dictionary of pd.DataFrame's
+        param (str): Name of the parameter
+
+    Returns:
+        (dict): Dictionary of np.arrays with metric values
+    """
     tp = sheets['TP'][param].values
     fp = sheets['FP'][param].values
     tn = sheets['TN'][param].values
@@ -191,6 +231,20 @@ def get_scores_from_confusion_matrix_sheets(sheets, param):
 
 def plot_compare_scores_distr(db, group_param_label,
                               N, x_sec, boot_dir, fig_dir, suptitle=None):
+    """Plot distributions (hist) of metrics for multiple parameters.
+
+    Args:
+        group (str): 'pRRx' or 'pRRx%
+
+        db (str): Acronym of the database.
+        group_param_label (tuple): each element is itself a tuple, such as
+            ('pRRx', 'pRR31.25', 'pRR31')
+        N (int): Number of samples in bootstrap
+        x_sec (int): Length of RR sequence [s].
+        boot_dir (str): Directory with bootstrap results in Excel file.
+        fig_dir (str): Write directory for images.
+        suptitle (str, optional): Suptitle for subplots. Defaults to None.
+    """
     scores = {}
     for (group, param, label) in group_param_label:
         fname = os.path.join(
