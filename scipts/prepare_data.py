@@ -54,7 +54,7 @@ def get_qrs_w_rhythm(ann):
     for rec_num, name in enumerate(rec_names):
         sr = []
         af = []
-        print(f"Associating rhythms with QRS's in record ({rec_num+1} / {len(rec_names)})", end='\r')
+        print(f"Associating rhythms with QRS's in record {rec_num+1}/{len(rec_names)}", end='\r')
 
         num_rhythms = len(ann[name]["atr_loc"])
         # Iterate through rhythms
@@ -184,7 +184,6 @@ def qrs_dir_to_prrx_df(qrs_dir, x_sec, prr_r, prr_perc_r):
     """
     # List of records
     rec_names = sorted(os.listdir(qrs_dir))
-    print(f"Record names: {rec_names}")
     prrx_dict = {}
     meta = ['rec_name', 't_start', 'len_sec', 'num_rr', 'is_af']
     for col in meta:
@@ -247,7 +246,6 @@ def prepare_prrx(db, fs, x_sec, qrs_dir, prrx_dir):
         prr_r=(prr_step_ms, 201, prr_step_ms),
         prr_perc_r=(prrx_step_perc, 25.1, prrx_step_perc),
     )
-    print(prrx_df.head())
     prrx_df.to_csv(
         os.path.join(prrx_dir, f"{db}/prrx_{db}_{x_sec}s.csv")
         )

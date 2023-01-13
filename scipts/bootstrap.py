@@ -404,8 +404,7 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
         cutoffs = dfs_cutoff[group][f'{x_sec} s'].values
         n_sampl = len(df_prrx.index)
         for iter in range(N):
-            print(f'Train: {db_train.upper()}, test: {db_test.upper()}',
-                  f'({group}), iter {iter+1} / {N}', end='\r')
+            print(f'Train: {db_train.upper()}, test: {db_test.upper()} ({group}), iter {iter+1} / {N}', end='\r')
             x_df = df_prrx[features].sample(n=n_sampl, replace=True)
             X = x_df.values
             y_true = df_prrx['is_af'].loc[x_df.index].values
@@ -416,6 +415,7 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
                 fp[feature].append(fp_)
                 fn[feature].append(fn_)
                 tp[feature].append(tp_)
+        print('')
         fname = f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx"
         writer = pd.ExcelWriter(
             os.path.join(boot_dir, fname), engine='openpyxl')
@@ -424,7 +424,6 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
             pd.DataFrame.from_dict(metric).to_excel(
                 writer, sheet_name=metric_name, index=False)
         writer.save()
-        print('')
 
 
 def plot_boot_train_vs_test(db_train, db_test, group, N,
