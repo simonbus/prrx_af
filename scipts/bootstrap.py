@@ -423,3 +423,18 @@ if __name__ == '__main__':
         calculate_95ci(boot_dir, 'train_ltafdb_test_afdb', x_sec, N, group)
         plot_boot_train_vs_test(
             'ltafdb', 'afdb', group, N, x_sec, boot_dir, fig_dir)
+    # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50 (test set)
+    plot_compare_scores_distr(
+        db='train_ltafdb_test_afdb',
+        group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
+                           ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
+        N=N, x_sec=x_sec, boot_dir=boot_dir,
+        fig_dir=fig_dir,
+        suptitle='Test set, AFDB')
+    plot_compare_scores_distr(
+        db='train_ltafdb_test_afdb',
+        group_param_label=(('pRRx', 'pRR54.6875', 'pRR50'),
+                           ('pRRx', 'pRR31.25', 'pRR31')),
+        N=N, x_sec=x_sec, boot_dir=boot_dir,
+        fig_dir=fig_dir,
+        suptitle='Test set, AFDB')
