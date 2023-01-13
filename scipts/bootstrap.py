@@ -294,7 +294,7 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
         cutoffs = dfs_cutoff[group][f'{x_sec} s'].values
         n_sampl = len(df_prrx.index)
         for iter in range(N):
-            print(f'Train: {db_train.upper()}, test": {db_test.upper()}',
+            print(f'Train: {db_train.upper()}, test: {db_test.upper()}',
                   f'({group}), {iter = } / {N}')
             x_df = df_prrx[features].sample(n=n_sampl, replace=True)
             X = x_df.values
@@ -307,13 +307,84 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
                 fn[feature].append(fn_)
                 tp[feature].append(tp_)
         writer = pd.ExcelWriter(
-            os.path.join(boot_dir, f"{x_sec}s_bootstrap_N={N}.xlsx"),
+            os.path.join(boot_dir, f"bootstrap_{group}_{x_sec}s_N={N}.xlsx"),
             engine='openpyxl')
         for i, (metric, metric_name) in enumerate([(tn, "TN"), (fp, "FP"),
                                                    (fn, "FN"), (tp, "TP")]):
             pd.DataFrame.from_dict(metric).to_excel(
                 writer, sheet_name=metric_name, index=False)
         writer.save()
+
+
+def plot_boot_train_vs_test(db_train, db_test, group, N,
+                            x_sec, boot_dir, fig_dir):
+    """Plot bootstrap results from training and test set
+
+    Args:
+        db_train (str): Acronym of the training database.
+        db_test (str): Acronym of the test database.
+        group (str): 'pRRx' or 'pRRx%
+        N (int): Number of samples in bootstrap
+        x_sec (int): Length of RR sequence [s].
+        boot_dir (str): Directory with bootstrap results in Excel file.
+        fig_dir (str): Write directory for images.
+    """
+    color_tab = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
+    ylim_max = 100  # upper limit for DOR
+    if '%' in group:
+        thr_unit = '%'
+    else:
+        thr_unit = 'ms'
+    dir_db = {
+        db_train: os.path.join(boot_dir, db_train),
+        db_test: os.path.join(boot_dir, f'train_{db_train}_test_{db_test}')
+    }
+    fig, axs = plt.subplots(3, 2, figsize=(10, 8), sharey=False, sharex=True)
+    for i, db in enumerate((db_train, db_test)):
+        # Read percentiles (2.5, 50, 97.5) from Excel
+        dfs_p2_5 = pd.read_excel(os.path.join(
+            dir_db[db], 'percentiles',
+            f'p2_5_bootstrap_{group}_{x_sec}s_N={N}.xlsx'), sheet_name=None)
+        dfs_p50 = pd.read_excel(os.path.join(
+            dir_db[db], 'percentiles',
+            f'medians_bootstrap_{group}_{x_sec}s_N={N}.xlsx'), sheet_name=None)
+        dfs_p97_5 = pd.read_excel(os.path.join(
+            dir_db[db], 'percentiles',
+            f'p97_5_bootstrap_{group}_{x_sec}s_N={N}.xlsx'), sheet_name=None)
+        for j, metric in enumerate(['DOR', 'Accuracy', 'Sensitivity',
+                                    'Specificity', 'PPV', 'NPV']):
+            ax = axs[j//2, j % 2]
+            features = [col for col in dfs_p50[metric].columns if 'Length' not in col]
+            x_thr = helper.get_x_thr(features)
+            [p2_5] = dfs_p2_5[metric][features].values
+            [p50] = dfs_p50[metric][features].values
+            [p97_5] = dfs_p97_5[metric][features].values
+            if metric != 'DOR':
+                ylim = (75, 100)
+                ylabel = '[%]'
+            else:
+                ylim_step = 50
+                if np.ceil(np.max(p97_5)/ylim_step) * ylim_step > ylim_max:
+                    ylim_max = np.ceil(np.max(p97_5)/ylim_step) * ylim_step
+                ylim = (0, ylim_max)
+                ylabel = None
+            helper.plot_line(
+                ax, xval=x_thr, yval=p50, label=db.upper(),
+                xlim=(0, np.ceil(x_thr[-1]/5)*5), ylim=ylim,
+                xlabel=None,
+                ylabel=ylabel, title=None,
+                color=color_tab[i], marker='.', markersize=1.5,
+                linewidth=1
+                )
+            ax.fill_between(x_thr, p2_5, p97_5, alpha=0.3, color=color_tab[i])
+            ax.set_title(metric, size=16)
+            ax.legend()
+    for i in range(2):
+        axs[2, i].set_xlabel(f'Threshold x [{thr_unit}]',)
+    plt.tight_layout()
+    fname = f'metrics_N={N}_{x_sec}s_{group.replace("%", "_perc")}_train_{db_train}_test_{db_test}.png'
+    helper.save_fig(fig_dir, fname)
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -324,24 +395,31 @@ if __name__ == '__main__':
     cutoff_method = 'youden'
     boot_dir = '../reports/excel/boot'
     fig_dir = '../reports/images/boot'
-    for db in ['ltafdb']:  # 'afdb'
-        bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N,
-                  boot_dir)
-        for group in ['pRRx', 'pRRx%']:
-            calculate_95ci(boot_dir, db, x_sec, N, group)
-            plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
-        # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
-        plot_compare_scores_distr(
-            db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
-                                   ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
-            N=N, x_sec=x_sec, boot_dir=boot_dir,
-            fig_dir=fig_dir)
-        plot_compare_scores_distr(
-            db, group_param_label=(('pRRx', 'pRR54.6875', 'pRR50'),
-                                   ('pRRx', 'pRR31.25', 'pRR31')),
-            N=N, x_sec=x_sec, boot_dir=boot_dir,
-            fig_dir=fig_dir)
+    db = 'ltafdb'
+    # Bootstrap - classification (train set)
+    bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N,
+              boot_dir)
+    for group in ['pRRx', 'pRRx%']:
+        calculate_95ci(boot_dir, db, x_sec, N, group)
+        plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
+    # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
+    plot_compare_scores_distr(
+        db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
+                               ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
+        N=N, x_sec=x_sec, boot_dir=boot_dir,
+        fig_dir=fig_dir)
+    plot_compare_scores_distr(
+        db, group_param_label=(('pRRx', 'pRR54.6875', 'pRR50'),
+                               ('pRRx', 'pRR31.25', 'pRR31')),
+        N=N, x_sec=x_sec, boot_dir=boot_dir,
+        fig_dir=fig_dir)
+    # Bootstrap - classification (test set)
     boot_test_set(
         db_train='ltafdb', db_test='afdb', cutoff_method=cutoff_method, N=N,
         x_sec=x_sec, cutoff_dir=cutoff_dir, prrx_dir=prrx_dir,
         boot_dir=boot_dir)
+    # Plot train and test set results
+    for group in ['pRRx', 'pRRx%']:
+        calculate_95ci(boot_dir, 'train_ltafdb_test_afdb', x_sec, N, group)
+        plot_boot_train_vs_test(
+            'ltafdb', 'afdb', group, N, x_sec, boot_dir, fig_dir)
