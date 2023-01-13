@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from matplotlib import pyplot as plt
+from scipy import stats
 from roc_analysis import read_opt_cutoff
 import helper
 
@@ -30,8 +31,8 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
     dfs_cutoff = read_opt_cutoff(cutoff_dir, db, x_sec, cutoff_method)
     params = helper.get_params(df_prrx)
     for group, features in params.items():  # pRRx, pRRx%
-        if not os.path.exists(boot_dir):
-            os.makedirs(boot_dir)
+        if not os.path.exists(os.path.join(boot_dir, db)):
+            os.makedirs(os.path.join(boot_dir, db))
         features = params[group]
         tn = {f: [] for f in features}
         fp = {f: [] for f in features}
@@ -63,7 +64,7 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
         writer.save()
 
 
-def calculate_95ci(boot_dir, db, x_sec, N, group):
+def calculate_95ci(boot_dir, db, x_sec, N, group, cutoff_method):
     """Calculate 95% confidence interval from bootstrap results.
 
     Args:
@@ -72,25 +73,15 @@ def calculate_95ci(boot_dir, db, x_sec, N, group):
         x_sec (int): Length of RR sequence [s].
         N (int): Number of samples in bootstrap
         group (str): 'pRRx' or 'pRRx%
+        cutoff_method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
     """
     # Calculate 95% CI from bootstrap results
-    fname = f"bootstrap_{group}_{x_sec}s_N={N}.xlsx"
+    fname = f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx"
     xls_path = os.path.join(boot_dir, db, fname)
     sheets = pd.read_excel(xls_path, engine='openpyxl', sheet_name=None)
     features = sheets['TP'].columns.values
-    tp = sheets['TP'].values
-    fp = sheets['FP'].values
-    tn = sheets['TN'].values
-    fn = sheets['FN'].values
-    scores = {
-        "Accuracy": 100 * (tp+tn)/(tp+tn+fp+fn+1e-9),
-        "Sensitivity": 100 * (tp)/(tp+fn+1e-9),
-        "Specificity": 100 * (tn)/(tn+fp+1e-9),
-        "PPV": 100 * (tp)/(tp+fp+1e-9),
-        "NPV": 100 * (tn)/(tn+fn+1e-9),
-        "F1-score": 100 * 2 * tp / (2*tp + fp + fn),
-        "DOR": tp*tn/(fp*fn+1e-9)
-    }
+    scores = get_scores_from_confusion_matrix_sheets(sheets, features)
     medians = {}
     p2_5 = {}
     p97_5 = {}
@@ -245,7 +236,7 @@ def plot_compare_scores_distr(db, group_param_label,
     scores = {}
     for (group, param, label) in group_param_label:
         fname = os.path.join(
-            boot_dir, db, f"bootstrap_{group}_{x_sec}s_N={N}.xlsx")
+            boot_dir, db, f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx")
         sheets = pd.read_excel(fname, engine='openpyxl', sheet_name=None)
         scores[param] = get_scores_from_confusion_matrix_sheets(sheets, param)
     color_tab = ['tab:orange', 'tab:blue', 'tab:green', 'tab:red', 'tab:purple']
@@ -297,6 +288,82 @@ def describe_median_results(db, group, N, x_sec, boot_dir):
               (f'and for {features[-1]} it is {scores[-1]:.2f}\n'))
 
 
+def test_diff_significance(db, group, N, params, x_sec, boot_dir):
+    """Test if the difference between classification metrics for different
+    pRRx/pRRx% parameters is statistically significant. For example,
+    is the accuracy of pRR0.25% significantly greater than accuracy of pRR0.5%?
+
+    Args:
+        db (str): Acronym of the database.
+        group (str): 'pRRx' or 'pRRx%
+        N (int): Number of samples in bootstrap
+        params (list or str): List of parameters or name of single parameter
+        x_sec (int): Length of RR sequence [s].
+        boot_dir (str): Directory with bootstrap results in Excel file.
+    """
+    db_dir = os.path.join(boot_dir, db)
+    fname = f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx"
+    xls_path = os.path.join(db_dir, fname)
+    sheets = pd.read_excel(xls_path, engine='openpyxl', sheet_name=None)
+    if not os.path.exists(os.path.join(db_dir, 'test_diff')):
+        os.makedirs(os.path.join(db_dir, 'test_diff'))
+    writer_wilcoxon = pd.ExcelWriter(
+        os.path.join(db_dir, 'test_diff',
+                     f"wilcoxon_{x_sec}s_bootstrap_N={N}.xlsx"),
+        engine='openpyxl'
+    )
+    writer_ttest = pd.ExcelWriter(
+        os.path.join(db_dir, 'test_diff',
+                     f"ttest_{x_sec}s_bootstrap_N={N}.xlsx"),
+        engine='openpyxl'
+    )
+    if params == 'all':
+        params = sheets['TN'].columns
+    scores = get_scores_from_confusion_matrix_sheets(
+        sheets=sheets, param=params)
+    pvals_wtest = np.zeros((len(params), len(params)))
+    pvals_ttest = np.zeros((len(params), len(params)))
+    wstats = np.zeros((len(params), len(params)))
+    tstats = np.zeros((len(params), len(params)))
+    for metric in ['DOR', 'Accuracy', 'Sensitivity',
+                   'Specificity', 'PPV', 'NPV']:
+        for i, feature in enumerate(params):
+            for j in range(i, len(params)):
+                # Wilcoxon test
+                w_stat, p_value = stats.wilcoxon(
+                    scores[metric][:, i],
+                    scores[metric][:, j],
+                    zero_method='zsplit', alternative='two-sided')
+                pvals_wtest[i, j] = p_value
+                wstats[i, j] = w_stat
+                # T-test
+                t_stat, p_value = stats.ttest_ind(
+                    scores[metric][:, i],
+                    scores[metric][:, j])
+                pvals_ttest[i, j] = p_value
+                tstats[i, j] = t_stat
+        # Write Wilcoxon test results
+        # p-values
+        df = pd.DataFrame(data=pvals_wtest, columns=params)
+        df.insert(loc=0, column='', value=params)
+        df.to_excel(writer_wilcoxon, sheet_name=f'{metric} (p-val)')
+        # w-statistics
+        df = pd.DataFrame(data=wstats, columns=params)
+        df.insert(loc=0, column='', value=params)
+        df.to_excel(writer_wilcoxon, sheet_name=f'{metric} (W-stat)')
+        # Write t-test results
+        # p-values
+        df = pd.DataFrame(data=pvals_ttest, columns=params)
+        df.insert(loc=0, column='', value=params)
+        df.to_excel(writer_ttest, sheet_name=f'{metric} (p-val)')
+        # t-statistics
+        df = pd.DataFrame(data=tstats, columns=params)
+        df.insert(loc=0, column='', value=params)
+        df.to_excel(writer_ttest, sheet_name=f'{metric} (t-stat)')
+    writer_wilcoxon.save()
+    writer_ttest.save()
+
+
 def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
                   prrx_dir, boot_dir):
     """Classify test set using cutoffs from training set
@@ -343,9 +410,9 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
                 fp[feature].append(fp_)
                 fn[feature].append(fn_)
                 tp[feature].append(tp_)
+        fname = f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx"
         writer = pd.ExcelWriter(
-            os.path.join(boot_dir, f"bootstrap_{group}_{x_sec}s_N={N}.xlsx"),
-            engine='openpyxl')
+            os.path.join(boot_dir, fname), engine='openpyxl')
         for i, (metric, metric_name) in enumerate([(tn, "TN"), (fp, "FP"),
                                                    (fn, "FN"), (tp, "TP")]):
             pd.DataFrame.from_dict(metric).to_excel(
@@ -437,9 +504,10 @@ if __name__ == '__main__':
     bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N,
               boot_dir)
     for group in ['pRRx', 'pRRx%']:
-        calculate_95ci(boot_dir, db, x_sec, N, group)
+        calculate_95ci(boot_dir, db, x_sec, N, group, cutoff_method)
         plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
         describe_median_results(db, group, N, x_sec, boot_dir)
+        test_diff_significance(db, group, N, 'all', x_sec, boot_dir)
     # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
     plot_compare_scores_distr(
         db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
@@ -458,7 +526,8 @@ if __name__ == '__main__':
         boot_dir=boot_dir)
     # Plot train and test set results
     for group in ['pRRx', 'pRRx%']:
-        calculate_95ci(boot_dir, 'train_ltafdb_test_afdb', x_sec, N, group)
+        calculate_95ci(boot_dir, 'train_ltafdb_test_afdb', x_sec, N, group,
+                       cutoff_method)
         plot_boot_train_vs_test(
             'ltafdb', 'afdb', group, N, x_sec, boot_dir, fig_dir)
     # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50 (test set)
