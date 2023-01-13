@@ -233,8 +233,6 @@ def plot_compare_scores_distr(db, group_param_label,
     """Plot distributions (hist) of metrics for multiple parameters.
 
     Args:
-        group (str): 'pRRx' or 'pRRx%
-
         db (str): Acronym of the database.
         group_param_label (tuple): each element is itself a tuple, such as
             ('pRRx', 'pRR31.25', 'pRR31')
@@ -273,8 +271,47 @@ def plot_compare_scores_distr(db, group_param_label,
     plt.show()
 
 
+def describe_median_results(db, group, N, x_sec, boot_dir):
+    """Describe best and worst median results from bootstrap
+
+    Args:
+        db (str): Acronym of the database.
+        group (str): 'pRRx' or 'pRRx%
+        N (int): Number of samples in bootstrap
+        x_sec (int): Length of RR sequence [s].
+        boot_dir (str): Directory with bootstrap results in Excel file.
+    """
+    dfs_p50 = pd.read_excel(os.path.join(
+        boot_dir, db, 'percentiles',
+        f'medians_bootstrap_{group}_{x_sec}s_N={N}.xlsx'), sheet_name=None)
+    for metric in dfs_p50:
+        df = dfs_p50[metric]
+        features = df.columns
+        features = [f for f in features if 'Length' not in f]
+        [scores] = df[features].values
+        print((f'{metric} is highest for {features[scores.argmax()]}'),
+              (f'({scores[scores.argmax()]:.2f})\n'),
+              (f'and lowest for {features[scores.argmin()]}'),
+              (f'({scores[scores.argmin()]:.2f}).\n'),
+              (f'For {features[0]} {metric} is {scores[0]:.2f}'),
+              (f'and for {features[-1]} it is {scores[-1]:.2f}\n'))
+
+
 def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
                   prrx_dir, boot_dir):
+    """Classify test set using cutoffs from training set
+
+    Args:
+        db_train (str): Acronym of the training database.
+        db_test (str): Acronym of the test database.
+        cutoff_method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
+        N (int): Number of samples in bootstrap
+        x_sec (int): Length of RR sequence [s].
+        cutoff_dir (str): Directory with cutoffs in Excel file.
+        prrx_dir (str): Directory with pRRx/pRRx% in CSV format.
+        boot_dir (str): Directory with bootstrap results in Excel file.    
+    """
     # 1. Read test set values
     df_prrx = helper.read_prrx(prrx_dir, db_test, x_sec)
     params = helper.get_params(df_prrx)
@@ -402,6 +439,7 @@ if __name__ == '__main__':
     for group in ['pRRx', 'pRRx%']:
         calculate_95ci(boot_dir, db, x_sec, N, group)
         plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
+        describe_median_results(db, group, N, x_sec, boot_dir)
     # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
     plot_compare_scores_distr(
         db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
