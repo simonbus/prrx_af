@@ -59,7 +59,8 @@ def plot_distr(perc_dict, db, x_sec, fig_dir):
             # Median line
             p50 = val[:, 50]
             helper.plot_line(
-                ax, xval=x_thr, yval=p50, label=rhythm, xlim=(0, x_thr[-1]),
+                ax, xval=x_thr, yval=p50, label=rhythm,
+                xlim=(0, np.ceil(x_thr[-1]/5)*5),
                 ylim=(0, 100), xlabel=xlabel, ylabel='[%]',
                 title=title, color=color, marker='o', markersize=2,
                 linewidth=2)

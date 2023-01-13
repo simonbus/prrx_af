@@ -62,13 +62,14 @@ def auc_prrx_to_excel(prrx_dir, db, x_sec, auc_dir):
     writer.save()
 
 
-def find_optimal_cutoff(df, method):
+def find_optimal_cutoff(df, method, x_sec):
     """Find optimal cutoff of pRRx/pRRx% using specified method.
 
     Args:
         df (pd.DataFrame): DF with values of pRRx/pRRx% parameters.
         method (str, optional): Method of optimal threshold calculation.
             Can be 'youden', 'dor_max' or '01_criterion'.
+        x_sec (int): Length of RR sequence [s].
 
     Returns:
         (dict): Dict of DFs with cutoffs
@@ -116,7 +117,7 @@ def find_optimal_cutoff(df, method):
         dfs_cutoff[group] = pd.DataFrame({
             'feature': features,
             f'{x_sec} s': opt_cutoff,
-            })        
+            })
     return dfs_cutoff
 
 
@@ -135,7 +136,7 @@ def cutoff_prrx_to_excel(prrx_dir, db, method, x_sec, cutoff_dir):
     # 1. Read data (pRRx, pRRx%)
     df = helper.read_prrx(prrx_dir, db, x_sec)
     # 2. Calculate cutoffs
-    dfs_cutoff = find_optimal_cutoff(df, method)
+    dfs_cutoff = find_optimal_cutoff(df, method, x_sec)
     # 3. Save in a single Excel file
     fname = f"cutoffs_prrx_{method}_{db}_{x_sec}s.xlsx"
     writer = pd.ExcelWriter(os.path.join(cutoff_dir, fname), engine='openpyxl')

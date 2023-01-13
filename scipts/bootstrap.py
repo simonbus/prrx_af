@@ -41,7 +41,7 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
         cutoffs = dfs_cutoff[group][f'{x_sec} s'].values
         n_sampl = len(df_prrx.index)
         for iter in range(N):
-            print(f'{db.upper()} ({group}), {iter = } / {N}')
+            print(f'{db.upper()} ({group}), iter {iter+1} / {N}', end='\r')
             x_df = df_prrx[features].sample(n=n_sampl, replace=True)
             X = x_df.values
             y_true = df_prrx['is_af'].loc[x_df.index].values
@@ -61,6 +61,7 @@ def bootstrap(prrx_dir, cutoff_dir, db, x_sec, cutoff_method, N, boot_dir):
                                                    (fn, "FN"), (tp, "TP")]):
             pd.DataFrame.from_dict(metric).to_excel(
                 writer, sheet_name=metric_name, index=False)
+        print('')
         writer.save()
 
 
@@ -219,7 +220,7 @@ def get_scores_from_confusion_matrix_sheets(sheets, param):
     return scores
 
 
-def plot_compare_scores_distr(db, group_param_label,
+def plot_compare_scores_distr(db, group_param_label, cutoff_method,
                               N, x_sec, boot_dir, fig_dir, suptitle=None):
     """Plot distributions (hist) of metrics for multiple parameters.
 
@@ -227,6 +228,8 @@ def plot_compare_scores_distr(db, group_param_label,
         db (str): Acronym of the database.
         group_param_label (tuple): each element is itself a tuple, such as
             ('pRRx', 'pRR31.25', 'pRR31')
+        cutoff_method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
         N (int): Number of samples in bootstrap
         x_sec (int): Length of RR sequence [s].
         boot_dir (str): Directory with bootstrap results in Excel file.
@@ -285,10 +288,11 @@ def describe_median_results(db, group, N, x_sec, boot_dir):
               (f'and lowest for {features[scores.argmin()]}'),
               (f'({scores[scores.argmin()]:.2f}).\n'),
               (f'For {features[0]} {metric} is {scores[0]:.2f}'),
-              (f'and for {features[-1]} it is {scores[-1]:.2f}\n'))
+              (f'and for {features[-1]} it is {scores[-1]:.2f}'))
 
 
-def test_diff_significance(db, group, N, params, x_sec, boot_dir):
+def test_diff_significance(db, group, N, params, x_sec, boot_dir,
+                           cutoff_method):
     """Test if the difference between classification metrics for different
     pRRx/pRRx% parameters is statistically significant. For example,
     is the accuracy of pRR0.25% significantly greater than accuracy of pRR0.5%?
@@ -300,6 +304,8 @@ def test_diff_significance(db, group, N, params, x_sec, boot_dir):
         params (list or str): List of parameters or name of single parameter
         x_sec (int): Length of RR sequence [s].
         boot_dir (str): Directory with bootstrap results in Excel file.
+        cutoff_method (str): Method of optimal threshold calculation.
+            Can be 'youden', 'dor_max' or '01_criterion'.
     """
     db_dir = os.path.join(boot_dir, db)
     fname = f"bootstrap_{group}_{x_sec}s_N={N}_cutoff_{cutoff_method}.xlsx"
@@ -399,7 +405,7 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
         n_sampl = len(df_prrx.index)
         for iter in range(N):
             print(f'Train: {db_train.upper()}, test: {db_test.upper()}',
-                  f'({group}), {iter = } / {N}')
+                  f'({group}), iter {iter+1} / {N}', end='\r')
             x_df = df_prrx[features].sample(n=n_sampl, replace=True)
             X = x_df.values
             y_true = df_prrx['is_af'].loc[x_df.index].values
@@ -418,6 +424,7 @@ def boot_test_set(db_train, db_test, cutoff_method, N, x_sec, cutoff_dir,
             pd.DataFrame.from_dict(metric).to_excel(
                 writer, sheet_name=metric_name, index=False)
         writer.save()
+        print('')
 
 
 def plot_boot_train_vs_test(db_train, db_test, group, N,
@@ -507,8 +514,9 @@ if __name__ == '__main__':
         calculate_95ci(boot_dir, db, x_sec, N, group, cutoff_method)
         plot_boot(db, group, N, x_sec, boot_dir, fig_dir)
         describe_median_results(db, group, N, x_sec, boot_dir)
-        test_diff_significance(db, group, N, 'all', x_sec, boot_dir)
-    # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50
+        test_diff_significance(
+            db, group, N, 'all', x_sec, boot_dir, cutoff_method)
+    # Compare distributions of metrics for pRR3.25%, pRR31 and pRR50
     plot_compare_scores_distr(
         db, group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),
                                ('pRRx%', 'pRR3.25%', 'pRR3.25%')),
@@ -530,7 +538,7 @@ if __name__ == '__main__':
                        cutoff_method)
         plot_boot_train_vs_test(
             'ltafdb', 'afdb', group, N, x_sec, boot_dir, fig_dir)
-    # Compare distributions of metrics for pRR3.5%, pRR31 and pRR50 (test set)
+    # Compare distributions of metrics for pRR3.25%, pRR31 and pRR50 (test set)
     plot_compare_scores_distr(
         db='train_ltafdb_test_afdb',
         group_param_label=(('pRRx', 'pRR31.25', 'pRR31'),

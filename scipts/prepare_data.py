@@ -51,10 +51,10 @@ def get_qrs_w_rhythm(ann):
     """
     qrs_dict = {}
     rec_names = ann.keys()
-    for name in rec_names:
+    for rec_num, name in enumerate(rec_names):
         sr = []
         af = []
-        print(f"\n++++++++++++\nRecord name: {name}:")
+        print(f"Associating rhythms with QRS's in record ({rec_num+1} / {len(rec_names)})", end='\r')
 
         num_rhythms = len(ann[name]["atr_loc"])
         # Iterate through rhythms
@@ -67,18 +67,15 @@ def get_qrs_w_rhythm(ann):
                 t_next = ann[name]["atr_loc"][i+1]
             else:
                 t_next = qrs[-1]
-                print("LAST RHYTHM")
-            print(f"*** Rhythm no. {i} at {t} [s]: {r}. Ends at {t_next} [s]")
             if r == "(N":
                 sr.append(np.copy(qrs[
                     np.where((qrs >= t) & (qrs < t_next))]
                 ))
-                print(f"Appended {len(sr[-1])} QRS's to SR")
             elif r == "(AFIB":
                 af.append(np.copy(
                     qrs[np.where((qrs >= t) & (qrs < t_next))]))
-                print(f"Appended {len(af[-1])} QRS's to AF")
             qrs_dict[name] = {"sr": sr, "af": af}
+    print('')
     return qrs_dict
 
 
@@ -125,20 +122,20 @@ def prepare_qrs(rec_dir, db):
     print(f'{db = }')
     file_lst = os.listdir(rec_dir)
     file_lst = [fn for fn in file_lst if fn.lower().endswith('.qrs')]
-    print(file_lst)
 
     # #### 2. GET QRS AND RHYTHMS FROM ANNOTATIONS ####
 
     # Read annotations (rhythm and QRS) to 'ann' dictionary
     # with record names as keys
     ann = {}
-    for name in file_lst:
-        print(name)
+    for i, name in enumerate(file_lst):
+        print(f'Reading annotations from record {i+1}/{len(file_lst)}', end='\r')
         name = Path(name).stem  # filename without extension
         ann[name] = ann_from_file(os.path.join(rec_dir, name))
 
     # For all records, divide QRS's to AF and SR
     # based on rhythm annotations and save in CSVs
+    print('')
     qrs_dict = get_qrs_w_rhythm(ann)
     save_qrs_to_files(qrs_dict, f"../data/interim/{db}/qrs")
 
@@ -196,7 +193,6 @@ def qrs_dir_to_prrx_df(qrs_dir, x_sec, prr_r, prr_perc_r):
     for rn in rec_names:
         # List of segments (CSV files with QRS)
         qrs_segm = sorted(os.listdir(os.path.join(qrs_dir, rn, 'qrs')))
-        print(f'{qrs_segm = }')
         # Calculate RR for each QRS segment
         for qrs_name in qrs_segm:
             # Get AF/SR label from QRS file name
@@ -241,7 +237,6 @@ def prepare_prrx(db, fs, x_sec, qrs_dir, prrx_dir):
     """
     # Make directory for results if it doesn't exist
     if not os.path.exists(os.path.join(prrx_dir, db)):
-        # print(f'Making dir: {os.path.join(prrx_dir, db)}')
         os.makedirs(os.path.join(prrx_dir, db))
     # pRRx_ms, pRRx_%
     prr_step_ms = 1000 / fs  # pRRx threshold x increment step
@@ -261,8 +256,7 @@ def prepare_prrx(db, fs, x_sec, qrs_dir, prrx_dir):
 if __name__ == '__main__':
     # 1. Save QRS locations of continuous AF and SR segments to CSV files
     for db in ['ltafdb', 'afdb']:
-        rec_dir = f'D:/Matlab_data/physionet/databases/{db}/1.0.0'
-        print(rec_dir)
+        rec_dir = f'../data/raw/{db}/1.0.0'
         prepare_qrs(rec_dir, db)
     # 2. Calculate pRRx and pRRx%
     x_sec = 60  # Length of RR segments [s]
