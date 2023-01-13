@@ -1,6 +1,7 @@
 # prrx_af
 
-This is a repository for the analysis of diagnostic properties of pRRx and pRRx% parameters in atrial fibrillation detection. pRRx and pRRx% are families of heart rate variability (HRV) parameters.
+This repository can be used for analysis of the diagnostic properties of [pRRx](https://www.mdpi.com/2077-0383/11/19/5702) and pRRx% parameters in atrial fibrillation (AF) detection.
+pRRx and pRRx% are families of heart rate variability (HRV) parameters.
 
 ## How to use this repository?
 
@@ -10,14 +11,17 @@ This is a repository for the analysis of diagnostic properties of pRRx and pRRx%
     ```
     git clone git@github.com:simonbus/prrx_af.git
     ```
-2. Download and unzip databases from Physionet
-    * [MIT-BIH Atrial Fibrillation Database](https://physionet.org/content/afdb/1.0.0/)
-    * [Long Term AF Database](https://physionet.org/content/ltafdb/1.0.0/)
+2. Download databases from Physionet ([Long Term AF Database (LTAFDB)](https://physionet.org/content/ltafdb/1.0.0/) and [MIT-BIH Atrial Fibrillation Database (AFDB)](https://physionet.org/content/afdb/1.0.0/))
+    * Unzip the files.
+    * Copy the content of the folders to `data/raw/ltafdb/1.0.0` and `data/raw/afdb/1.0.0`, respectively.
 
-### 2. Calculate pRRx and pRRx% parameters
+### 3. Use the demo Jupyter notebook to analyze the data
 
-* [scipts/prepare_data.py](scipts/prepare_data.py)
+* [scipts/prrx_analysis.ipynb](scipts/prrx_analysis.ipynb)
 
-### 3. Analyze the data
+### 4. Modify the analysis parameters
 
-1. [scipts/distribution.py](scipts/distribution.py)
+Different parameters of analysis can be changes, such as:
+* `x_sec` - length of the analyzed RR series
+* `N` - number of repetitions in nonparametric bootstrap
+* `cutoff_method` - method of choosing the optimal cutoff value
