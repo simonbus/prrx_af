@@ -1,6 +1,6 @@
 # prrx_af
 
-This repository can be used for analysis of the diagnostic properties of [pRRx](https://www.mdpi.com/2077-0383/11/19/5702) and pRRx% parameters in atrial fibrillation (AF) detection.
+This repository can be used for analysis of the diagnostic properties of [pRRx](https://www.mdpi.com/2077-0383/11/19/5702) and [pRRx%](https://www.mdpi.com/2077-0383/12/2/687) parameters in atrial fibrillation (AF) detection.
 pRRx and pRRx% are families of heart rate variability (HRV) parameters.
 
 ## How to use this repository?
