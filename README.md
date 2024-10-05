@@ -21,7 +21,7 @@ pRRx and pRRx% are families of heart rate variability (HRV) parameters.
 
 ### 4. Modify the analysis parameters
 
-Different parameters of analysis can be changes, such as:
+Different parameters of analysis can be changed, such as:
 * `x_sec` - length of the analyzed RR series
 * `N` - number of repetitions in nonparametric bootstrap
 * `cutoff_method` - method of choosing the optimal cutoff value
